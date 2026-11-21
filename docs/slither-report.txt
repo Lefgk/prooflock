@@ -1,0 +1,33 @@
+Prooflock slither report (22 Nov 2026)
+Analyzed src/ only (lib, test and script excluded).
+Findings: 6 timestamp comparisons on deadline / review-window checks.
+These are expected for a time-based escrow. A validator can move the
+timestamp by a few seconds, not past the 1-hour minimum windows.
+No other detectors fired. Not a substitute for an audit.
+
+Multiple frameworks detected: Foundry, Dapp. Using Foundry (highest priority). Use --compile-force-framework to override.
+'forge clean' running (wd: /workspace/pm-builds/prooflock)
+'forge config --json' running
+'forge build --build-info --deny never --skip ./test/** ./script/** --force' running (wd: /workspace/pm-builds/prooflock)
+INFO:Detectors:
+Detector: timestamp
+Prooflock.createJob(Prooflock.JobParams) (src/Prooflock.sol#151-181) uses timestamp for comparisons
+	Dangerous comparisons:
+	- p.deadline < block.timestamp + MIN_DEADLINE_LEAD || p.deadline > block.timestamp + MAX_JOB_DURATION (src/Prooflock.sol#155)
+Prooflock.postBond(uint256) (src/Prooflock.sol#184-197) uses timestamp for comparisons
+	Dangerous comparisons:
+	- block.timestamp >= job.deadline (src/Prooflock.sol#190)
+Prooflock.deliver(uint256,bytes32,string) (src/Prooflock.sol#200-213) uses timestamp for comparisons
+	Dangerous comparisons:
+	- block.timestamp >= job.deadline (src/Prooflock.sol#204)
+Prooflock.autoRelease(uint256) (src/Prooflock.sol#226-233) uses timestamp for comparisons
+	Dangerous comparisons:
+	- block.timestamp < job.reviewDeadline (src/Prooflock.sol#229)
+Prooflock.refund(uint256) (src/Prooflock.sol#237-245) uses timestamp for comparisons
+	Dangerous comparisons:
+	- block.timestamp < job.deadline (src/Prooflock.sol#240)
+Prooflock.dispute(uint256) (src/Prooflock.sol#248-256) uses timestamp for comparisons
+	Dangerous comparisons:
+	- block.timestamp >= job.reviewDeadline (src/Prooflock.sol#253)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#block-timestamp
+INFO:Slither:. analyzed (15 contracts with 76 detectors), 6 result(s) found
