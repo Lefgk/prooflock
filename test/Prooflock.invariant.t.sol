@@ -126,6 +126,29 @@ contract ProoflockHandler is Test {
         } catch {}
     }
 
+    bool public ghostStaleStuck;
+
+    /// Audit M-1: a dispute past reviewDeadline + DISPUTE_TIMEOUT must always be settleable by anyone.
+    function resolveStale(uint256 idHint) external {
+        uint256 id = _id(idHint);
+        if (id == 0) return;
+        Prooflock.Job memory job = lock.jobs(id);
+        if (job.status != Prooflock.Status.Disputed) return;
+        uint256 due = uint256(job.reviewDeadline) + lock.DISPUTE_TIMEOUT();
+        if (block.timestamp < due) {
+            vm.expectRevert(Prooflock.DisputeNotExpired.selector);
+            lock.resolveStaleDispute(id);
+            vm.warp(due);
+        }
+        uint256 before = usdc.balanceOf(address(lock));
+        try lock.resolveStaleDispute(id) {
+            settledOut += before - usdc.balanceOf(address(lock));
+            calls++;
+        } catch {
+            ghostStaleStuck = true;
+        }
+    }
+
     function warp(uint256 secs) external {
         vm.warp(block.timestamp + bound(secs, 1, 40 days));
     }
@@ -180,6 +203,10 @@ contract ProoflockInvariantTest is StdInvariant, Test {
         }
         assertEq(sum, lock.totalLocked());
         assertEq(usdc.balanceOf(address(lock)), sum);
+    }
+
+    function invariant_staleDisputeAlwaysSettleable() public view {
+        assertFalse(handler.ghostStaleStuck());
     }
 
     /// @notice Everything that ever entered the escrow is either still locked or has been paid out.

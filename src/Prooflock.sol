@@ -62,6 +62,9 @@ contract Prooflock is Ownable2Step, ReentrancyGuard {
     uint64 public constant MAX_REVIEW_WINDOW = 30 days;
     uint64 public constant MIN_DEADLINE_LEAD = 1 hours;
     uint64 public constant MAX_JOB_DURATION = 180 days;
+    /// @notice If the arbiter has not resolved a dispute this long after the review deadline, anyone can
+    ///         settle it with a 50/50 split and the bond back to the provider (audit fix M-1).
+    uint64 public constant DISPUTE_TIMEOUT = 30 days;
 
     IERC20 public immutable usdc;
     address public feeRecipient;
@@ -94,6 +97,7 @@ contract Prooflock is Ownable2Step, ReentrancyGuard {
     event Refunded(uint256 indexed jobId, uint256 amount, uint256 bondReturned);
     event Disputed(uint256 indexed jobId, address indexed client);
     event Resolved(uint256 indexed jobId, uint256 providerPayout, uint256 clientPayout, uint256 fee, bool slashBond);
+    event DisputeTimedOut(uint256 indexed jobId, address indexed caller);
     event FeeUpdated(uint16 feeBps);
     event FeeRecipientUpdated(address indexed feeRecipient);
 
@@ -118,6 +122,7 @@ contract Prooflock is Ownable2Step, ReentrancyGuard {
     error NoArbiter();
     error InvalidSplit();
     error FeeTooHigh();
+    error DisputeNotExpired();
 
     constructor(address usdc_, address owner_, address feeRecipient_) Ownable(owner_) {
         if (usdc_ == address(0) || feeRecipient_ == address(0) || owner_ == address(0)) revert ZeroAddress();
@@ -260,6 +265,20 @@ contract Prooflock is Ownable2Step, ReentrancyGuard {
         uint256 amount = job.amount;
         uint256 fee = _settle(job, providerPayout, slashBond, Status.Resolved);
         emit Resolved(id, providerPayout - fee, amount - providerPayout, fee, slashBond);
+    }
+
+    /// @notice Anyone can settle a dispute the arbiter left unresolved for `DISPUTE_TIMEOUT` after the
+    ///         review deadline: the escrow is split 50/50 (odd unit to the client, fee only on the
+    ///         provider half) and a posted bond goes back to the provider. Audit fix M-1.
+    function resolveStaleDispute(uint256 id) external nonReentrant {
+        Job storage job = _jobs[id];
+        if (job.status != Status.Disputed) revert InvalidStatus();
+        if (block.timestamp < uint256(job.reviewDeadline) + DISPUTE_TIMEOUT) revert DisputeNotExpired();
+        uint256 amount = job.amount;
+        uint256 providerPayout = amount / 2;
+        uint256 fee = _settle(job, providerPayout, false, Status.Resolved);
+        emit DisputeTimedOut(id, msg.sender);
+        emit Resolved(id, providerPayout - fee, amount - providerPayout, fee, false);
     }
 
     // ── Views ────────────────────────────────────────────────────────────────

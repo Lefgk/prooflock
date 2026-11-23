@@ -420,6 +420,26 @@ function JobPanel({
         </div>
       )}
 
+      {job.status === 3 && (
+        <div className="row">
+          <button
+            className="ghost"
+            onClick={() =>
+              after("Settle stale dispute", () =>
+                writeContractAsync({
+                  address: escrow,
+                  abi: prooflockAbi,
+                  functionName: "resolveStaleDispute",
+                  args: [jobId],
+                }),
+              )
+            }
+          >
+            Settle 50/50 (arbiter silent 30 days after review)
+          </button>
+        </div>
+      )}
+
       {job.status === 2 && (
         <div className="row">
           <button

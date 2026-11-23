@@ -26,7 +26,7 @@ See [SPEC.md](SPEC.md) for the problem, competitors and choices, and [DEPLOY.md]
 - `postBond` is required before `deliver` when a bond was set. `deliver` posts a hash/URI before the deadline and starts the review window.
 - `accept` (client) or `autoRelease` (anyone, after the review window) pays the provider minus the snapshotted fee and returns the bond.
 - `refund` (anyone, after a missed deadline with no delivery) returns the amount to the client and the bond to the provider.
-- `dispute` (client, during review, only if an arbiter was named) then `resolve` (arbiter): a split of the amount is allowed, and the arbiter may slash the bond to the client.
+- `dispute` (client, during review, only if an arbiter was named) then `resolve` (arbiter): a split of the amount is allowed, and the arbiter may slash the bond to the client. If the arbiter stays silent for 30 days after the review deadline, anyone can call `resolveStaleDispute`: the escrow splits 50/50 and the bond goes back to the provider.
 - Fees default to 0, are capped at 5% (500 bps), and are taken only from the provider's payout. Owner uses `Ownable2Step`.
 
 ## Run the dapp
